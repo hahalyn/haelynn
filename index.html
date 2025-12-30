@@ -1,0 +1,247 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, AreaChart, Area, ComposedChart } from 'recharts';
+import { Settings, Activity, Zap, TrendingUp, AlertTriangle, Info } from 'lucide-react';
+
+const ResourceRecoverySim = () => {
+  // --- 상태 관리 (Variables) ---
+  // 목표 회수율 (0% ~ 99%)
+  const [targetRecovery, setTargetRecovery] = useState(85);
+  // 공정 기술 수준 (에너지 효율 상수, 낮을수록 기술이 좋음)
+  const [techEfficiency, setTechEfficiency] = useState(1.5);
+  
+  // --- 시뮬레이션 로직 (Physics Engine) ---
+  const generateData = () => {
+    const data = [];
+    let maxScore = -Infinity;
+    let optimalPoint = 0;
+
+    // 0%부터 98%까지 시뮬레이션 데이터 생성
+    for (let r = 0; r <= 98; r += 2) {
+      const recovery = r; // x축: 회수율 (%)
+      
+      // 1. 회수 가치 (선형 증가) - 경제성
+      // 회수율이 높을수록 자원을 많이 얻으므로 가치가 선형적으로 증가
+      const value = recovery * 10; 
+
+      // 2. 재생 부담 에너지 (비선형, 지수함수적 증가) - 환경부담
+      // 회수율이 100%에 가까워질수록 불순물 분리 난이도가 급증하여 에너지가 폭발적으로 듦 (엔트로피 법칙 반영)
+      // techEfficiency가 낮을수록 기울기가 완만해짐
+      const burden = techEfficiency * (Math.pow(1.05, r) - 1) * 2 + (r * 0.5);
+
+      // 3. 종합 효율 지표 (Optimization Index) - 제안하는 새로운 지표
+      // 단순 회수율이 아닌, (얻은 가치 - 투입된 에너지 비용)
+      const score = value - burden;
+
+      if (score > maxScore) {
+        maxScore = score;
+        optimalPoint = r;
+      }
+
+      data.push({
+        recovery,
+        value: parseFloat(value.toFixed(1)),
+        burden: parseFloat(burden.toFixed(1)),
+        score: parseFloat(score.toFixed(1)),
+      });
+    }
+    return { data, optimalPoint, maxScore };
+  };
+
+  const { data, optimalPoint, maxScore } = useMemo(() => generateData(), [techEfficiency]);
+
+  // 현재 슬라이더 값에 따른 실시간 결과 계산
+  const currentStat = data.find(d => d.recovery === targetRecovery) || { value: 0, burden: 0, score: 0 };
+  
+  // 상태 메시지 결정
+  const getStatusMessage = () => {
+    if (targetRecovery > optimalPoint + 10) {
+      return { 
+        text: "비효율 구간: 회수율 향상에 따른 에너지 부하가 급격히 증가하여 종합 효율이 감소하고 있습니다. (트레이드 오프 발생)", 
+        color: "text-red-600",
+        icon: <AlertTriangle className="w-5 h-5 mr-2" />
+      };
+    } else if (targetRecovery < optimalPoint - 10) {
+      return { 
+        text: "잠재력 구간: 에너지 여유가 있어 회수율을 더 높여 경제성을 확보할 수 있습니다.", 
+        color: "text-blue-600", 
+        icon: <TrendingUp className="w-5 h-5 mr-2" />
+      };
+    } else {
+      return { 
+        text: "최적화 구간: 공정의 경제성과 환경부담이 최적의 균형을 이루고 있습니다.", 
+        color: "text-green-600", 
+        icon: <Activity className="w-5 h-5 mr-2" />
+      };
+    }
+  };
+
+  const status = getStatusMessage();
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* 헤더 섹션 */}
+        <header className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <Settings className="w-6 h-6 text-indigo-600" />
+                자원 회수 공정 최적화 시뮬레이터
+              </h1>
+              <p className="text-slate-500 mt-1">
+                학급 공동 시뮬레이션 탐구 랩 | 회수율-에너지 효율 민감도 분석
+              </p>
+            </div>
+            <div className="bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100 text-sm text-indigo-700">
+              현재 제안 지표: <strong>종합 공정 효율성 (OPI)</strong>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* 제어 패널 */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-full">
+              <h2 className="text-lg font-semibold mb-6 flex items-center">
+                <Settings className="w-5 h-5 mr-2" /> 변수 조절 (Control)
+              </h2>
+              
+              {/* 슬라이더 1: 목표 회수율 */}
+              <div className="mb-8">
+                <div className="flex justify-between mb-2">
+                  <label className="font-medium text-slate-700">목표 회수율 (Target Recovery)</label>
+                  <span className="font-bold text-indigo-600">{targetRecovery}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="98" 
+                  step="2"
+                  value={targetRecovery} 
+                  onChange={(e) => setTargetRecovery(Number(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  *높을수록 더 많은 자원을 회수하지만 공정 난이도가 상승함
+                </p>
+              </div>
+
+              {/* 슬라이더 2: 공정 기술 수준 */}
+              <div className="mb-8">
+                <div className="flex justify-between mb-2">
+                  <label className="font-medium text-slate-700">재생 에너지 부하 계수</label>
+                  <span className="font-bold text-slate-600">{techEfficiency.toFixed(1)}</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0.5" 
+                  max="3.0" 
+                  step="0.1"
+                  value={techEfficiency} 
+                  onChange={(e) => setTechEfficiency(Number(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-slate-500"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  *값이 클수록 재생 단계의 에너지 효율이 낮음 (구형 설비)
+                </p>
+              </div>
+
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">현재 상태 분석</h3>
+                <div className={`p-4 rounded-lg border flex items-start ${status.color.replace('text-', 'bg-').replace('600', '50')} border-${status.color.split('-')[1]}-200`}>
+                  <div className={`${status.color} mt-0.5`}>{status.icon}</div>
+                  <p className={`text-sm ${status.color} font-medium leading-relaxed`}>
+                    {status.text}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 메인 차트 및 결과 */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* KPI 카드 */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div className="text-sm text-gray-500 mb-1">순수 자원 회수량</div>
+                <div className="text-2xl font-bold text-slate-800">{currentStat.value} <span className="text-sm font-normal text-gray-400">unit</span></div>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <div className="text-sm text-gray-500 mb-1">재생 에너지 부하</div>
+                <div className={`text-2xl font-bold ${currentStat.burden > currentStat.value ? 'text-red-500' : 'text-orange-500'}`}>
+                  {currentStat.burden} <span className="text-sm font-normal text-gray-400">kWh</span>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 bg-indigo-50 border-indigo-100">
+                <div className="text-sm text-indigo-600 mb-1 font-semibold">종합 최적화 지표</div>
+                <div className="text-2xl font-bold text-indigo-700">{currentStat.score} <span className="text-sm font-normal">pts</span></div>
+              </div>
+            </div>
+
+            {/* 메인 그래프 */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-lg text-slate-800">민감도 분석 시뮬레이션 결과</h3>
+                <div className="flex gap-4 text-xs">
+                  <span className="flex items-center"><div className="w-3 h-3 bg-blue-400 rounded-full mr-1"></div> 회수 가치(경제성)</span>
+                  <span className="flex items-center"><div className="w-3 h-3 bg-red-400 rounded-full mr-1"></div> 에너지 부하(환경성)</span>
+                  <span className="flex items-center"><div className="w-3 h-3 border-2 border-indigo-600 mr-1"></div> 종합 지표</span>
+                </div>
+              </div>
+
+              <div className="h-[350px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis 
+                      dataKey="recovery" 
+                      label={{ value: '공정 회수율 (%)', position: 'insideBottom', offset: -10 }} 
+                      tick={{fontSize: 12}}
+                    />
+                    <YAxis label={{ value: '가치 / 부하', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                    
+                    {/* 영역: 회수 가치 (선형) */}
+                    <Area type="monotone" dataKey="value" fill="#93c5fd" stroke="#3b82f6" fillOpacity={0.1} strokeWidth={2} name="회수 가치" />
+                    
+                    {/* 라인: 에너지 부하 (지수함수 - 비선형) */}
+                    <Line type="monotone" dataKey="burden" stroke="#ef4444" strokeWidth={3} dot={false} name="재생 에너지 부하" />
+                    
+                    {/* 라인: 종합 점수 (최적화 지표) */}
+                    <Line type="monotone" dataKey="score" stroke="#4f46e5" strokeWidth={3} dot={false} name="종합 효율 지표" />
+
+                    {/* 현재 선택 지점 표시선 */}
+                    <ReferenceLine x={targetRecovery} stroke="black" strokeDasharray="3 3" label="현재 설정" />
+                    
+                    {/* 최적 지점 표시선 */}
+                    <ReferenceLine x={optimalPoint} stroke="green" strokeDasharray="3 3" label={{ position: 'top',  value: '최적점', fill: 'green', fontSize: 12 }} />
+                  
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 mt-0.5 text-gray-500" />
+                  <p>
+                    <strong>그래프 해석:</strong> 회수율(X축)이 증가함에 따라 파란색 영역(회수 가치)은 일정하게 증가하지만, 
+                    <span className="text-red-500 font-bold"> 빨간선(에너지 부하)</span>은 특정 구간 이후 급격히 상승합니다(비선형성). 
+                    따라서 두 선의 차이인 <span className="text-indigo-600 font-bold">보라색 선(종합 지표)</span>이 정점을 찍는 구간이 
+                    진정한 공정 최적화 지점입니다. (단순 100% 회수가 정답이 아님)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ResourceRecoverySim;
